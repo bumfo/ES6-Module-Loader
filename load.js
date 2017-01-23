@@ -86,7 +86,6 @@
       let parsed = source.replace(parser, (whole, qmark, string, kimport, idefault, kas, ias, kas2, ias2, limports, kfrom, kexport, kdefault, lexports, sexport, iexport) => {
         if (qmark) {
           if (isImport) {
-            // console.log(string)
             isImport = false
 
             let uri = resolve(string)
@@ -106,20 +105,16 @@
           if (idefault) {
             let importDefault = [idefault, ias || idefault]
             rtn.push(`default: ${importDefault[1]}`)
-            // console.log(importDefault)
           }
           if (limports) {
             let importList = parseAsList(limports)
             rtn.push(...importList.map(item => item[0] === item[1] ? item[0] : `${item[0]}: ${item[1]}`))
-
-            // console.log(importList)
           }
           if (ias2) {
             if (rtn.length) {
               backrefer = ', { ' + rtn.join(', ') + ` } = ${ias2}`
             }
             return `const ${ias2} = `
-            // console.log(['*', ias2])
           }
 
           return 'const { ' + rtn.join(', ') + ' } = '
@@ -214,12 +209,8 @@
       if (requests[cururi]) {
         return []
       } else {
-        console.log(cururi)
         requests[cururi] = request(cururi)
         sources[cururi] = parse(await requests[cururi], (str) => resolve(cururi, str), refers)
-        // console.log(sources[cururi])
-        // console.log(sources[cururi])
-        console.log(refers)
       }
       return refers.map(uri => context(cururi, uri))
     }
