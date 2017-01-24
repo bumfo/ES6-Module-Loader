@@ -54,8 +54,10 @@ console.log(c.isStrongerThan(b))
 ```
 
 ```html
+<!-- include import.js -->
+<script src="import.js"></script>
 <!-- use in scripts -->
 <script>
-  load('./entry.js')
+  System.import('./entry.js')
 </script>
 ```
