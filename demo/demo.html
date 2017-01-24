@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<title>Demo</title>
+<meta name=viewport content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+
+<script src="../src/import.js"></script>
+<script>
+  System.import('./utils.js').then((UtilsModule) => {
+    console.log(UtilsModule.bestSpeed(3))
+  })
+</script>
