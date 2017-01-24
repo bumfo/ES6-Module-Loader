@@ -78,10 +78,15 @@
         .map(arr => [arr[0], arr[1] || arr[0]])
     }
 
+    function joinExported(exported) {
+      return exported.map(item => `exports.${item[1]} = ${item[0]}`).join('\n')
+    }
+
     return function parse(source, resolve, refers) {
       let isImport = false
       let backrefer = ''
       let exported = []
+      let forwardExported = []
 
       let parsed = source.replace(parser, (whole, qmark, string, kimport, idefault, kas, ias, kas2, ias2, limports, kfrom, kexport, kdefault, lexports, sexport, iexport) => {
         if (qmark) {
@@ -125,14 +130,14 @@
 
             return ''
           } else {
-            exported.push([iexport, kdefault ? 'default' : iexport])
+            (sexport.substr(-8) === 'function' ? forwardExported : exported).push([iexport, kdefault ? 'default' : iexport])
 
             return `${sexport} ${iexport}`
           }
         }
       })
 
-      parsed += '\n' + exported.map(item => `exports.${item[1]} = ${item[0]}`).join('\n')
+      parsed = [joinExported(forwardExported), parsed, joinExported(exported)].join('\n')
 
       return parsed
     }
@@ -182,15 +187,7 @@
     return request
   })()
 
-  const { load, __import } = (() => {
-    const baseuri = (() => {
-      try {
-        return window.location.pathname;
-      } catch (e) {
-        return module.id;
-      }
-    })()
-
+  const { System } = (() => {
     const requests = {}
     const sources = {}
     const exported = {}
@@ -204,39 +201,62 @@
     }
 
     async function preprocess({ baseuri, uri }) {
-      let cururi = uri
+      let absuri = uri
       let refers = []
-      if (requests[cururi]) {
+      if (requests[absuri]) {
         return []
       } else {
-        requests[cururi] = request(cururi)
-        sources[cururi] = parse(await requests[cururi], (str) => resolve(cururi, str), refers)
+        requests[absuri] = request(absuri)
+        sources[absuri] = parse(await requests[absuri], (str) => resolve(absuri, str), refers)
       }
-      return refers.map(uri => context(cururi, uri))
+      return refers.map(uri => context(absuri, uri))
     }
 
-    async function load(...uris) {
-      const loads = uris.map(uri => context(baseuri, resolve(baseuri, uri)))
-      await aqueue(...loads)
+    async function __load(baseuri, absuri) {
+      await aqueue(context(baseuri, absuri))
         .grow(context => preprocess(context))
 
-      loads.forEach(({ baseuri, uri }) => __import(uri))
+      return __import(absuri)
     }
 
-    function __import(cururi) {
-      let exports = exported[cururi]
+    function getSystem(baseuri) {
+      return {
+        async import(uri) {
+          let absuri = resolve(baseuri, uri)
+          if (sources[absuri])
+            return __import(absuri)
+
+          return await __load(baseuri, absuri)
+        }
+      }
+    }
+
+    function createExports() {
+      return Object.create(null)
+    }
+
+    function __import(absuri) {
+      let exports = exported[absuri]
       if (exports)
         return exports
-      console.log(`--- ${cururi}`)
-      exports = exported[cururi] = {}
-      let source = 'return function(exports) {\'use strict\';\n' + sources[cururi] + '}'
-      new Function(source)()(exports)
+      console.log(`--- ${absuri}`)
+      exports = exported[absuri] = createExports()
+      let source = 'return function(exports, __import, System) {\'use strict\';\n' + sources[absuri] + '}'
+      new Function(source)()(exports, __import, getSystem(absuri))
+      Object.seal(exports)
       return exports
     }
 
-    return { load, __import }
+    return {
+      System: getSystem((() => {
+        try {
+          return window.location.pathname;
+        } catch (e) {
+          return module.id;
+        }
+      })())
+    }
   })()
 
-  this.load = load
-  this.__import = __import
+  this.System = System
 })()
