@@ -92,7 +92,7 @@
 
             refers.push(uri)
 
-            let rtn = `require(${qmark}${uri}${qmark})` + backrefer
+            let rtn = `__import(${qmark}${uri}${qmark})` + backrefer
             backrefer = ''
             return rtn
           }
@@ -182,7 +182,7 @@
     return request
   })()
 
-  const { load, require } = (() => {
+  const { load, __import } = (() => {
     const baseuri = (() => {
       try {
         return window.location.pathname;
@@ -220,10 +220,10 @@
       await aqueue(...loads)
         .grow(context => preprocess(context))
 
-      loads.forEach(({ baseuri, uri }) => require(uri))
+      loads.forEach(({ baseuri, uri }) => __import(uri))
     }
 
-    function require(cururi) {
+    function __import(cururi) {
       let exports = exported[cururi]
       if (exports)
         return exports
@@ -234,9 +234,9 @@
       return exports
     }
 
-    return { load, require }
+    return { load, __import }
   })()
 
   this.load = load
-  this.require = require
+  this.__import = __import
 })()
