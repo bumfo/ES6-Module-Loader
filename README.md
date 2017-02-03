@@ -1,6 +1,6 @@
 # ES6-Module-Loader
 
-## Usage
+## Supports Circular Dependencies
 
 ```javascript
 // Rock.js
@@ -60,4 +60,15 @@ console.log(c.isStrongerThan(b))
 <script>
   System.import('./entry.js')
 </script>
+```
+
+## Import stdandard JS interface as modules
+
+```javascript
+import { PI, sqrt, abs } from 'std/math'
+import { create as createObject } from 'std/object'
+
+console.log(sqrt(2), PI)
+console.log(createObject(null))
+
 ```
