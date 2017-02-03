@@ -190,20 +190,30 @@
   const { System } = (() => {
     const requests = {}
     const sources = {}
-    const exported = {}
+    const exported = {
+      'std/math': Math,
+      'std/object': Object,
+    }
+    const reserved = {
+      'std/math': 1,
+      'std/object': 1,
+    }
 
     function context(baseuri, uri) {
       return { baseuri, uri }
     }
 
     function resolve(baseuri, uri) {
+      if (reserved[uri]) {
+        return uri
+      }
       return path.resolve(baseuri, uri)
     }
 
     async function preprocess({ baseuri, uri }) {
       let absuri = uri
       let refers = []
-      if (requests[absuri]) {
+      if (reserved[absuri] || requests[absuri]) {
         return []
       } else {
         requests[absuri] = request(absuri)
@@ -223,7 +233,7 @@
       return {
         async import(uri) {
           let absuri = resolve(baseuri, uri)
-          if (sources[absuri])
+          if (exported[absuri] || sources[absuri])
             return __import(absuri)
 
           return await __load(baseuri, absuri)
@@ -243,7 +253,7 @@
       exports = exported[absuri] = createExports()
       let source = 'return function(exports, __import, System) {\'use strict\';\n' + sources[absuri] + '}'
       new Function(source)()(exports, __import, getSystem(absuri))
-      Object.seal(exports)
+      Object.freeze(exports)
       return exports
     }
 
