@@ -280,10 +280,9 @@
       let exports = exported[absuri]
       if (exports)
         return exports
-      console.log(`--- ${absuri}`)
       exports = exported[absuri] = createExports()
-      let source = 'return function(exports, __import, System) {\'use strict\';\n' + sources[absuri] + '}'
-      new Function(source)()(exports, __import, getSystem(absuri))
+      let source = [`console.log('--- ${absuri}');`, 'return function(exports, __import, __exportGetter, System) {\'use strict\';\n\n', sources[absuri], '\n}'].join('')
+      new Function(source)()(exports, __import, __exportGetter.bind(null, exports), getSystem(absuri))
       Object.freeze(exports)
       return exports
     }
