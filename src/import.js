@@ -69,7 +69,7 @@
     const strings = /(['"])((?:(?!\1|\\).|\\.)*)\1/
     const comments = /\/\/.*$|\/\*(?:[^*]|\*(?!\/))\*\//
     const imports = /\b(import)\b\s*(?:([A-Za-z_$][\w$]*)\s*(?:\b(as)\b\s*([A-Za-z_$][\w$]*)\s*)?(?:,\s*(?=\{|\*)|(?=\b(?:from)\b)))?(?:\*\s*(?:\b(as)\b\s*([A-Za-z_$][\w$]*)\s*)?|\{([^}]*)\})?\s*?\b(from)\b\s*(?=['"])/
-    const exports = /\b(export)\b\s*(?:\b(default)\b\s*)?(?:\{([^}]*)\}|(?:\b(var|let|const|class|function|async[ \t]+function)\b\s*)(?:([A-Za-z_$][\w$]*)))\s*/
+    const exports = /\b(export)\b\s*(?:\b(default)\b\s*)?(?:\{([^}]*)\}|(?:\b(var|let|const|class|function|async[ \t]+function)\b\s*)(?:([A-Za-z_$][\w$]*)))/
     const parser = regex('gm', strings, comments, imports, exports)
 
     function parseAsList(list) {
@@ -82,11 +82,16 @@
       return exported.map(item => `exports.${item[1]} = ${item[0]}`).join('\n')
     }
 
+    function joinGetter(exported) {
+      return exported.map(item => `__exportGetter('${item[1]}', () => ${item[0]})`).join('\n')
+    }
+
     return function parse(source, resolve, refers) {
       let isImport = false
       let backrefer = ''
       let exported = []
       let forwardExported = []
+      let getterExported = []
 
       let parsed = source.replace(parser, (whole, qmark, string, kimport, idefault, kas, ias, kas2, ias2, limports, kfrom, kexport, kdefault, lexports, sexport, iexport) => {
         if (qmark) {
@@ -130,14 +135,19 @@
 
             return ''
           } else {
-            (sexport.substr(-8) === 'function' ? forwardExported : exported).push([iexport, kdefault ? 'default' : iexport])
+            if (/\b(?:var|let)\b/.test(sexport)) {
+              getterExported.push([iexport, kdefault ? 'default' : iexport])
+            } else {
+              (sexport.substr(-8) === 'function' ? forwardExported : exported).push([iexport, kdefault ? 'default' : iexport])
+            }
 
             return `${sexport} ${iexport}`
           }
         }
+        return whole
       })
 
-      parsed = [joinExported(forwardExported), parsed, joinExported(exported)].join('\n')
+      parsed = [joinExported(forwardExported), joinGetter(getterExported), parsed, joinExported(exported)].join('\n')
 
       return parsed
     }
@@ -198,12 +208,16 @@
       'std/math': 1,
       'std/object': 1,
     }
+    const mapped = {}
 
     function context(baseuri, uri) {
       return { baseuri, uri }
     }
 
     function resolve(baseuri, uri) {
+      if (mapped[uri]) {
+        return mapped[uri]
+      }
       if (reserved[uri]) {
         return uri
       }
@@ -237,12 +251,29 @@
             return __import(absuri)
 
           return await __load(baseuri, absuri)
-        }
+        },
+        set: (uri, module) => {
+          if (reserved[uri]) {
+            throw new TypeError
+          }
+          reserved[uri] = 1
+          exported[uri] = module
+        },
+        map: (uri, touri) => {
+          if (reserved[uri]) {
+            throw new TypeError
+          }
+          mapped[uri] = resolve(baseuri, touri)
+        },
       }
     }
 
     function createExports() {
       return Object.create(null)
+    }
+
+    function __exportGetter(exports, name, fn) {
+      Object.defineProperty(exports, name, { get: fn })
     }
 
     function __import(absuri) {
