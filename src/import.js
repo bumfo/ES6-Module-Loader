@@ -51,9 +51,21 @@
       return parts.join('/')
     }
     resolve(...args) {
-      return path.normalize(args.reduce((dir, p) => {
-        return path.basedir(dir) + p
-      }))
+      var dir = args[args.length - 1]
+      for (var i = args.length - 2; i >= 0; --i) {
+        if (dir[0] === '/')
+          break
+        var p = args[i]
+        dir = path.basedir(p) + dir
+      }
+      return path.normalize(dir)
+    }
+    relative(baseuri, absuri) {
+      if (absuri.substr(0, baseuri.length) !== baseuri) {
+        console.warn(baseuri, absuri)
+        throw new RangeError
+      }
+      return absuri.substr(baseuri.length)
     }
   })
 
@@ -210,6 +222,8 @@
     }
     const mapped = {}
 
+    var rooturi = ''
+
     function context(baseuri, uri) {
       return { baseuri, uri }
     }
@@ -230,7 +244,7 @@
       if (reserved[absuri] || requests[absuri]) {
         return []
       } else {
-        requests[absuri] = request(absuri)
+        requests[absuri] = request(rooturi + absuri)
         sources[absuri] = parse(await requests[absuri], (str) => resolve(absuri, str), refers)
       }
       return refers.map(uri => context(absuri, uri))
@@ -259,12 +273,19 @@
           reserved[uri] = 1
           exported[uri] = module
         },
-        map: (uri, touri) => {
+        map(uri, touri) {
           if (reserved[uri]) {
             throw new TypeError
           }
           mapped[uri] = resolve(baseuri, touri)
         },
+        root(uri) {
+          if (rooturi.length) {
+            throw new TypeError
+          }
+          rooturi = resolve(baseuri, uri)
+          baseuri = path.relative(rooturi, baseuri)
+        }
       }
     }
 
