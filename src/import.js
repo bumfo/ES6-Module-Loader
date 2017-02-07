@@ -224,8 +224,21 @@
 
     var rooturi = ''
 
-    function context(baseuri, uri) {
-      return { baseuri, uri }
+    const customizedLoaders = {}
+
+    function context(baseuri, uri, loader) {
+      return { baseuri, uri, loader }
+    }
+
+    function getCustomizedLoader(uri) {
+      var i = uri.lastIndexOf('.')
+      if (i === -1)
+        return false
+      return customizedLoaders[uri.substr(i)]
+    }
+
+    function plainLoader(source) {
+      return source
     }
 
     function resolve(baseuri, uri) {
@@ -238,20 +251,28 @@
       return path.resolve(baseuri, uri)
     }
 
-    async function preprocess({ baseuri, uri }) {
+    async function preprocess({ baseuri, uri, loader }) {
       let absuri = uri
-      let refers = []
+      
       if (reserved[absuri] || requests[absuri]) {
         return []
-      } else {
-        requests[absuri] = request(rooturi + absuri)
-        sources[absuri] = parse(await requests[absuri], (str) => resolve(absuri, str), refers)
       }
-      return refers.map(uri => context(absuri, uri))
+
+      if (loader) {
+        requests[absuri] = request(rooturi + absuri)
+        exported[absuri] = { default: loader(await requests[absuri]) }
+
+        return []
+      }
+
+      let refers = []
+      requests[absuri] = request(rooturi + absuri)
+      sources[absuri] = parse(await requests[absuri], (str) => resolve(absuri, str), refers)
+      return refers.map(uri => context(absuri, uri, getCustomizedLoader(uri)))
     }
 
     async function __load(baseuri, absuri) {
-      await aqueue(context(baseuri, absuri))
+      await aqueue(context(baseuri, absuri, getCustomizedLoader(absuri)))
         .grow(context => preprocess(context))
 
       return __import(absuri)
@@ -285,7 +306,10 @@
           }
           rooturi = resolve(baseuri, uri)
           baseuri = path.relative(rooturi, baseuri)
-        }
+        },
+        customize(extension, loader) {
+          customizedLoaders[extension] = loader || plainLoader
+        },
       }
     }
 
