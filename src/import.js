@@ -1,4 +1,8 @@
 !(() => {
+  const isNode = (() => {
+    return typeof window === 'undefined'
+  })()
+
   const path = new (class {
     explicit(p) {
       let firstChar = p[0]
@@ -206,7 +210,24 @@
       })
     }
 
-    return request
+    function getRequestNode() {
+      const fs = require('fs')
+
+      function requestNode(uri) {
+        return new Promise((done, reject) => {
+          fs.readFile(uri, 'utf8', (err, data) => {
+            if (err) {
+              reject(err)
+            }
+            done(data)
+          })
+        })
+      }
+
+      return requestNode
+    }
+
+    return isNode ? getRequestNode() : request
   })()
 
   const { System } = (() => {
@@ -335,9 +356,9 @@
     return {
       System: getSystem((() => {
         try {
-          return window.location.pathname;
+          return window.location.pathname
         } catch (e) {
-          return module.id;
+          return path.basedir(require.main.filename)
         }
       })())
     }
