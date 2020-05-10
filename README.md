@@ -62,7 +62,7 @@ console.log(c.isStrongerThan(b))
 </script>
 ```
 
-## Import stdandard JS interface as modules
+## Import standard JS interface as modules
 
 ```javascript
 import { PI, sqrt, abs } from 'std/math'
